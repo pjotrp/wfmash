@@ -45,7 +45,7 @@ void parse_args(int argc,
     // Scaffold filtering - default to 0.5 overlap threshold
     map_parameters.scaffold_overlap_threshold = 0.5;
 
-    args::ArgumentParser parser("");
+    args::ArgumentParser parser("wfmash " WFMASH_GIT_VERSION " - a pangenome-scale aligner");
     parser.helpParams.width = 100;
     parser.helpParams.showTerminator = false;
     parser.helpParams.progindent = 0;
