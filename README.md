@@ -81,6 +81,9 @@ wfmash -Y '#' pangenome.fa >aln.paf
 * `-c[INT], --chain-jump=[INT]` - maximum gap to chain mappings (default: 2k)
 * `-P[INT], --max-length=[INT]` - maximum mapping length for alignment (default: 50k)
 * `-N, --no-split` - map each sequence as a single block
+* `--legacy` - use pre-0.15 (mashmap v3.1.1-era) parameter defaults (see
+  [Legacy compatibility mode](#legacy-compatibility-mode)); explicit
+  options always take precedence over the legacy defaults
 
 #### Filtering Options
 * `-f, --no-filter` - disable all filtering
@@ -187,6 +190,47 @@ To get only the best mapping between each query-target pair:
 ```sh
 wfmash -o reference.fa query.fa >aln.paf
 ```
+
+### Legacy compatibility mode
+wfmash versions before 0.15 were built on mashmap v3.1.1 with very
+different parameter defaults (5 kb segments, a 25 kb minimum block
+length, a 20 kb chain gap, one mapping per segment, and a single fixed
+identity threshold). Workflows written and verified against those
+versions (e.g. the mempang workshop pipeline) can be run on current
+wfmash with `--legacy`, which restores those defaults in one switch:
+
+| parameter | current default | `--legacy` |
+|---|---|---|
+| `-k/--kmer-size` | 15 | 19 |
+| `-w/--window-size` | 1k | 5k |
+| `-l/--block-length` | 0 (no floor) | 25k |
+| `-c/--chain-jump` | 2k | 20k |
+| `-n/--mappings` | inf | 1 |
+| `-p/--map-pct-id` | ANI preset (ani50-2) | fixed 90% |
+| `-P/--max-length` | 50k | unlimited |
+| `-j/--scaffold-jump` | 100k | 0 (scaffold filtering off) |
+| `-F/--filter-freq` | 0.0002 (0.02%) | 0.00001 (0.001%) |
+| alignment identity cutoff | disabled | 0.8 × `-p` (e.g. 76% for `-p 95`) |
+
+Any option given explicitly overrides its legacy default, so partial
+migration stays possible (`--legacy -p 95` keeps the 25 kb blocks and
+20 kb chain gap but maps at 95% identity):
+
+```sh
+# all-vs-all mapping with pre-0.15 behaviour
+wfmash --legacy -m -n 7 pangenome.fa >mappings.paf
+
+# map+align at a custom threshold on top of the legacy defaults
+wfmash --legacy -p 95 reference.fa query.fa >aln.paf
+```
+
+`--legacy` is a *defaults approximation*, not a behavioural guarantee:
+the merge and filtering pipeline itself changed in 0.15+, so output is
+nearly equivalent but not byte-identical to a pre-0.15 binary. On an
+8-strain yeast all-vs-all (96 Mbp) `--legacy` recovers 620/621 of the
+old version's query-target pairs and 99.8% of the bases covered by its
+mappings, while reporting the additional short homologies that the old
+25 kb block filter removed (2,243 vs 1,622 mappings).
 
 ## Scaffolding for Large-Scale Alignments
 
