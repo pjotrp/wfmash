@@ -16,7 +16,7 @@ jobs:
     # toolchain that cannot build the wgatools rust-htslib dependency
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v5
       - name: Install required packages
         run: sudo apt-get update && sudo apt-get install -y
           git
@@ -57,7 +57,7 @@ jobs:
     # cannot build the wgatools rust-htslib dependency
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v5
       - name: Install required packages
         run: |
           brew install cmake gcc gsl zlib samtools bedtools
