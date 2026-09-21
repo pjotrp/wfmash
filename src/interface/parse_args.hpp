@@ -121,6 +121,7 @@ void parse_args(int argc,
     args::ValueFlag<std::string> target_padding(alignment_opts, "INT", "target padding [segment-length]", {'E', "target-padding"});
     args::ValueFlag<std::string> query_padding(alignment_opts, "INT", "query padding [segment-length]", {'U', "query-padding"});
     args::ValueFlag<std::string> wfa_params(alignment_opts, "m,go1,ge1,go2,ge2", "gap costs [5,8,2,24,1]", {'g', "wfa-params"});
+    args::Flag force_wflign(alignment_opts, "", "force WFlign alignment", {"force-wflign"});
     args::ValueFlag<uint64_t> min_alignment_length(alignment_opts, "INT", "minimum alignment length in bp [32]", {"min-length"});
     args::ValueFlag<float> min_block_identity(alignment_opts, "FLOAT", "minimum block identity [0.1]", {"min-block-id"});
 
@@ -307,7 +308,6 @@ void parse_args(int argc,
     align_parameters.sam_format = args::get(sam_format);
     align_parameters.no_seq_in_sam = false;
     align_parameters.disable_chain_patching = false;
-    args::Flag force_wflign(alignment_opts, "", "force WFlign alignment", {"force-wflign"});
     align_parameters.force_wflign = args::get(force_wflign);
     map_parameters.split = !args::get(no_split);
     map_parameters.dropRand = false;//ToFix: !args::get(keep_ties);
