@@ -1025,8 +1025,10 @@ So it might be helpful to others, and it's reasonably safe to use :stuck_out_ton
 
 Happy aligning!
 
-### Low-divergence mapping engine (branch `low-divergence-engine`)
+### Low-divergence engine (branch `low-divergence-engine`)
 
+* One binary, two engines: the **0.24 engine runs by default**;
+  `wfmash --engine low-divergence ...` opts in to the 0.14 lineage.
 * New `--engine` CLI concept: `src/engine/NAME/` hosts complete,
   self-contained engines with their own parameter parsing;
   `wfmash --engine NAME ...` dispatches the raw argv to the engine
