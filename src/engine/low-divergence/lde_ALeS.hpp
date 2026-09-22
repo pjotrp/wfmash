@@ -1,6 +1,3 @@
-// Vendored from wfmash v0.14.1 (branch v0.14.1, commit 9b2a7388) for the
-// low-divergence engine; namespace prefixed lde_ to avoid symbol
-// collisions with the mainline engine's copy.
 #ifndef ALES_HPP
 #define ALES_HPP
 

@@ -1,8 +1,3 @@
-// Vendored from wfmash v0.14.1 (branch v0.14.1, commit 9b2a7388) for the
-// low-divergence engine (src/engine/low-divergence/).  Files are renamed
-// with an lde_ prefix and the mashmap/yeet/align namespaces are prefixed
-// lde_ so the 0.14-lineage engine code cannot collide with the mainline
-// 0.24 engine.  Provenance: waveygang/wfmash.
 #pragma once
 
 #include <unistd.h>
@@ -385,7 +380,7 @@ void parse_args(int argc,
     map_parameters.mergeMappings = !args::get(no_merge);
 
     if (segment_length) {
-        const int64_t s = wfmash::handy_parameter(args::get(segment_length));
+        const int64_t s = lde_yeet::handy_parameter(args::get(segment_length));
 
         if (s <= 0) {
             std::cerr << "[wfmash] ERROR, lde_skch::parseandSave, segment length has to be a float value greater than 0." << std::endl;
@@ -413,7 +408,7 @@ void parse_args(int argc,
     }
 
     if (block_length) {
-        const int64_t l = wfmash::handy_parameter(args::get(block_length));
+        const int64_t l = lde_yeet::handy_parameter(args::get(block_length));
 
         if (l < 0) {
             std::cerr << "[wfmash] ERROR, lde_skch::parseandSave, min block length has to be a float value greater than or equal to 0." << std::endl;
@@ -428,7 +423,7 @@ void parse_args(int argc,
     }
 
     if (chain_gap) {
-        const int64_t l = wfmash::handy_parameter(args::get(chain_gap));
+        const int64_t l = lde_yeet::handy_parameter(args::get(chain_gap));
         if (l < 0) {
             std::cerr << "[wfmash] ERROR, lde_skch::parseandSave, chain gap has to be a float value greater than or equal to 0." << std::endl;
             exit(1);
@@ -540,7 +535,7 @@ void parse_args(int argc,
     }
 
     if (wflign_max_len_major) {
-        const uint64_t wflign_max_len_major_ = (uint64_t)wfmash::handy_parameter(args::get(wflign_max_len_major));
+        const uint64_t wflign_max_len_major_ = (uint64_t)lde_yeet::handy_parameter(args::get(wflign_max_len_major));
 
         if (wflign_max_len_major_ <= 0) {
             std::cerr << "[wfmash] ERROR, lde_skch::parseandSave, maximum length to patch in the major axis has to be a float value greater than 0." << std::endl;
@@ -553,7 +548,7 @@ void parse_args(int argc,
     }
 
     if (wflign_max_len_minor) {
-        const uint64_t wflign_max_len_minor_ = (uint64_t)wfmash::handy_parameter(args::get(wflign_max_len_minor));
+        const uint64_t wflign_max_len_minor_ = (uint64_t)lde_yeet::handy_parameter(args::get(wflign_max_len_minor));
 
         if (wflign_max_len_minor_ <= 0) {
             std::cerr << "[wfmash] ERROR, lde_skch::parseandSave, maximum length to patch in the minor axis has to be a float value greater than 0." << std::endl;
