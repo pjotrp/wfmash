@@ -1,7 +1,3 @@
-// Vendored from wfmash v0.14.1 (branch v0.14.1, commit 9b2a7388) for the
-// low-divergence engine (src/engine/low-divergence/); the namespace is
-// prefixed lde_ so the out-of-line definitions in this header cannot
-// collide with the mainline engine's copy.
 /*
  *   @ingroup utils
  *

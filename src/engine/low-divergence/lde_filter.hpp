@@ -1,8 +1,3 @@
-// Vendored from wfmash v0.14.1 (branch v0.14.1, commit 9b2a7388) for the
-// low-divergence engine (src/engine/low-divergence/).  Files are renamed
-// with an lde_ prefix and the mashmap/yeet/align namespaces are prefixed
-// lde_ so the 0.14-lineage engine code cannot collide with the mainline
-// 0.24 engine.  Provenance: waveygang/wfmash.
 /**
  * @file    filter.hpp
  * @brief   implements the routines to filter mappings
@@ -156,8 +151,7 @@ namespace lde_skch
           //Event point schedule
           //vector of triplets <position, event type, segment id>
           typedef std::tuple<offset_t, int, int> eventRecord_t;
-          std::vector <eventRecord_t>  eventSchedule;
-          eventSchedule.reserve(2*readMappings.size());
+          std::vector <eventRecord_t>  eventSchedule (2*readMappings.size());
 
           for(int i = 0; i < readMappings.size(); i++)
           {
@@ -218,8 +212,7 @@ namespace lde_skch
           //Event point schedule
           //vector of triplets <position, event type, segment id>
           typedef std::tuple<offset_t, double, int, int> eventRecord_t;
-          std::vector <eventRecord_t>  eventSchedule;
-          eventSchedule.reserve(2*readMappings.size());
+          std::vector <eventRecord_t>  eventSchedule (2*readMappings.size());
 
           for(int i = 0; i < readMappings.size(); i++) {
               eventSchedule.emplace_back (readMappings[i].queryStartPos, obj.get_score(i), event::BEGIN, i);
@@ -391,8 +384,7 @@ namespace lde_skch
 
           //Event point schedule
           //vector of triplets <position, event type, segment id>
-          std::vector <eventRecord_t>  eventSchedule;
-          eventSchedule.reserve(2*readMappings.size());
+          std::vector <eventRecord_t>  eventSchedule (2*readMappings.size());
 
           for(int i = 0; i < readMappings.size(); i++)
           {

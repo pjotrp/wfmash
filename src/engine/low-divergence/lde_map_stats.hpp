@@ -1,8 +1,3 @@
-// Vendored from wfmash v0.14.1 (branch v0.14.1, commit 9b2a7388) for the
-// low-divergence engine (src/engine/low-divergence/).  Files are renamed
-// with an lde_ prefix and the mashmap/yeet/align namespaces are prefixed
-// lde_ so the 0.14-lineage engine code cannot collide with the mainline
-// 0.24 engine.  Provenance: waveygang/wfmash.
 /**
  * @file    map_stats.hpp
  * @author  Chirag Jain <cjain7@gatech.edu>

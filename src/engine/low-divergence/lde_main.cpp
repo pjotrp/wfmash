@@ -1,8 +1,3 @@
-// Vendored from wfmash v0.14.1 (branch v0.14.1, commit 9b2a7388) for the
-// low-divergence engine (src/engine/low-divergence/).  Files are renamed
-// with an lde_ prefix and the mashmap/yeet/align namespaces are prefixed
-// lde_ so the 0.14-lineage engine code cannot collide with the mainline
-// 0.24 engine.  Provenance: waveygang/wfmash.
 /**
  * @file    align.cpp
  * @ingroup src
@@ -26,14 +21,14 @@
 #include "engine/low-divergence/lde_parse_args.hpp"
 
 #include "engine/low-divergence/lde_align_parameters.hpp"
-#include "engine/low-divergence/lde_parseCmdArgs.hpp"
+#include "engine/low-divergence/lde_computeAlignments.hpp"
+#include "engine/low-divergence/lde_align_parseCmdArgs.hpp"
 
 
 
 //External includes
 #include "common/args.hxx"
 #include "engine/low-divergence/lde_ALeS.hpp"
-#include "engine/low-divergence/lde_agc_index.hpp"
 
 int lde_main(int argc, char** argv) {
     /*
@@ -96,12 +91,130 @@ int lde_main(int argc, char** argv) {
         if (yeet_parameters.approx_mapping) {
             return 0;
         }
+     } else {
+        robin_hood::unordered_flat_map< std::string, std::pair<lde_skch::seqno_t, uint64_t> > seqName_to_seqCounterAndLen;
+        lde_skch::seqno_t seqCounter = 0;
+        for(const auto &fileName : map_parameters.querySequences) {
+            // check if there is a .fai
+            std::string fai_name = fileName + ".fai";
+            if (fs::exists(fai_name)) {
+                // if so, process the .fai to determine our sequence length
+                std::string line;
+                std::ifstream in(fai_name.c_str());
+                while (std::getline(in, line)) {
+                    auto line_split = lde_skch::CommonFunc::split(line, '\t');
+                    const std::string seq_name = line_split[0];
+                    const uint64_t seq_len = std::stoull(line_split[1]);
+                    seqName_to_seqCounterAndLen[seq_name] = std::make_pair(seqCounter++,  seq_len);
+                }
+            } else {
+                // if not, warn that this is expensive
+                std::cerr << "[wfmash::align] WARNING, no .fai index found for " << fileName << ", reading the file to sort the mappings (slow)" << std::endl;
+                for(const auto &fileName : map_parameters.querySequences)
+                {
+                    lde_seqiter::for_each_seq_in_file(
+						    fileName, {}, "", 
+                            [&](const std::string& seq_name,
+                                    const std::string& seq) {
+                                seqName_to_seqCounterAndLen[seq_name] = std::make_pair(seqCounter++,  seq.length());
+                            });
+                }
+            }
+        }
+
+
+        igzstream mappingListStream(map_parameters.outFileName.c_str());
+        std::string mappingRecordLine;
+        lde_align::MappingBoundaryRow currentRecord;
+        std::vector<lde_align::MappingBoundaryRow> allReadMappings;
+
+        while (!mappingListStream.eof()){
+            std::getline(mappingListStream, mappingRecordLine);
+            if( !mappingRecordLine.empty() ) {
+                lde_align::Aligner::parseMashmapRow(mappingRecordLine, currentRecord);
+
+                allReadMappings.push_back(currentRecord);
+            }
+        }
+
+        std::sort(allReadMappings.begin(), allReadMappings.end(), [&seqName_to_seqCounterAndLen](const lde_align::MappingBoundaryRow &a, const lde_align::MappingBoundaryRow &b)
+        {
+            return (seqName_to_seqCounterAndLen[a.qId].first < seqName_to_seqCounterAndLen[b.qId].first);
+        });
+
+        std::ofstream outstrm(align_parameters.mashmapPafFile);
+        for(auto &e : allReadMappings)
+        {
+            outstrm << e.qId
+            << "\t" << seqName_to_seqCounterAndLen[e.qId].second
+            << "\t" << e.qStartPos
+            << "\t" << e.qEndPos
+            << "\t" << (e.strand == lde_skch::strnd::FWD ? "+" : "-")
+            << "\t" << e.refId
+            << "\t" << seqName_to_seqCounterAndLen[e.refId].second
+            << "\t" << e.rStartPos
+            << "\t" << e.rEndPos
+            << "\t" << 0
+            << "\t" << std::max(e.rEndPos - e.rStartPos, e.qEndPos - e.qStartPos)
+            << "\t" << 255
+            << "\t" << "id:f:" << e.mashmap_estimated_identity
+            << "\n";
+        }
     }
 
-    // [low-divergence engine] The alignment stage of the 0.14 engine
-    // (the full wflign aligner) is not vendored into this build yet;
-    // this engine is mapping-only for now.
-    std::cerr << "[wfmash::lde] ERROR: the low-divergence engine currently"
-                 " supports mapping only; pass -m/--approx-map" << std::endl;
-    return 1;
+    if (align_parameters.sam_format) {
+        // Prepare SAM header
+        std::ofstream outstrm(align_parameters.pafOutputFile);
+
+        for(const auto &fileName : map_parameters.refSequences)
+        {
+            // check if there is a .fai
+            std::string fai_name = fileName + ".fai";
+            if (fs::exists(fai_name)) {
+                // if so, process the .fai to determine our sequence length
+                std::string line;
+                std::ifstream in(fai_name.c_str());
+                while (std::getline(in, line)) {
+                    auto line_split = lde_skch::CommonFunc::split(line, '\t');
+                    const std::string seq_name = line_split[0];
+                    const uint64_t seq_len = std::stoull(line_split[1]);
+                    outstrm << "@SQ\tSN:" << seq_name << "\tLN:" << seq_len << "\n";
+                }
+            } else {
+                // if not, warn that this is expensive
+                std::cerr << "[wfmash::align] WARNING, no .fai index found for " << fileName << ", reading the file to prepare SAM header (slow)" << std::endl;
+                lde_seqiter::for_each_seq_in_file(
+					    fileName, {}, "",
+                        [&](const std::string& seq_name,
+                                const std::string& seq) {
+                            outstrm << "@SQ\tSN:" << seq_name << "\tLN:" << seq.length() << "\n";
+                        });
+            }
+
+
+
+
+
+        }
+        outstrm << "@PG\tID:wfmash\tPN:wfmash\tVN:0.1\tCL:wfmash\n";
+
+        outstrm.close();
+    }
+
+    lde_align::printCmdOptions(align_parameters);
+
+    auto t0 = lde_skch::Time::now();
+    lde_align::Aligner alignObj(align_parameters);
+    std::chrono::duration<double> timeRefRead = lde_skch::Time::now() - t0;
+    std::cerr << "[wfmash::align] time spent loading the reference index: " << timeRefRead.count() << " sec" << std::endl;
+
+    //Compute the alignments
+    alignObj.compute();
+
+    std::chrono::duration<double> timeAlign = lde_skch::Time::now() - t0;
+    std::cerr << "[wfmash::align] time spent computing the alignment: " << timeAlign.count() << " sec" << std::endl;
+
+    std::cerr << "[wfmash::align] alignment results saved in: " << align_parameters.pafOutputFile << std::endl;
+
+    return 0;   // was implicit in main(); must be explicit now that this is lde_main
 }

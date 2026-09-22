@@ -1,8 +1,3 @@
-// Vendored from wfmash v0.14.1 (branch v0.14.1, commit 9b2a7388) for the
-// low-divergence engine (src/engine/low-divergence/).  Files are renamed
-// with an lde_ prefix and the mashmap/yeet/align namespaces are prefixed
-// lde_ so the 0.14-lineage engine code cannot collide with the mainline
-// 0.24 engine.  Provenance: waveygang/wfmash.
 //-----------------------------------------------------------------------------
 // MurmurHash3 was written by Austin Appleby, and is placed in the
 // public domain. The author hereby disclaims copyright to this source
@@ -41,22 +36,7 @@ static FORCE_INLINE uint64_t rotl64 ( uint64_t x, int8_t r )
 // Block read - if your platform needs to do endian-swapping or can only
 // handle aligned reads, do the conversion here
 
-#include <string.h>
-
-/* Loads come from arbitrary byte offsets, so p is usually misaligned.
-   Dereferencing a misaligned wide pointer is undefined behaviour;
-   memcpy expresses the unaligned load and costs nothing after optimisation. */
-static FORCE_INLINE uint32_t getblock(const uint32_t *p, int i) {
-    uint32_t v;
-    memcpy(&v, (const char *)p + (size_t)i * sizeof(v), sizeof(v));
-    return v;
-}
-
-static FORCE_INLINE uint64_t getblock(const uint64_t *p, int i) {
-    uint64_t v;
-    memcpy(&v, (const char *)p + (size_t)i * sizeof(v), sizeof(v));
-    return v;
-}
+#define getblock(p, i) (p[i])
 
 //-----------------------------------------------------------------------------
 // Finalization mix - force all bits of a hash block to avalanche

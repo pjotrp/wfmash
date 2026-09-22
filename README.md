@@ -639,26 +639,32 @@ mainline.
 ### `--engine low-divergence`
 
 The `low-divergence` engine is the wfmash 0.14 lineage (mashmap
-v3.1.1-era mapping), vendored from the maintained `v0.14.1` branch
-(`waveygang/wfmash`, branch head 9b2a7388).  Engine code lives in
-`src/engine/low-divergence/` under `lde_`-prefixed file names with the
-`skch`, `yeet` and `align` namespaces prefixed `lde_`, so it cannot
-collide with the mainline 0.24 engine.  It accepts the 0.14-era flag
-set (`wfmash --engine low-divergence --help`):
+v3.1.1-era mapping plus the wflign aligner), vendored from the
+workshop's 0.14 snapshot 7bf8988 (`waveygang/wfmash`).  Engine code
+lives in `src/engine/low-divergence/` under `lde_`-prefixed file names
+with the `skch`, `yeet` and `align` namespaces prefixed `lde_`, so it
+cannot collide with the mainline 0.24 engine.  WFA2-lib is vendored
+alongside it (`src/engine/low-divergence/deps/lde_WFA2-lib`) with every
+linked symbol renamed, because the 0.14 snapshot uses a different WFA2
+revision than the mainline and their behaviour differs.  It accepts the
+0.14-era flag set (`wfmash --engine low-divergence --help`):
 
 ```sh
 # all-vs-all mapping, exactly as wfmash 0.14 produced it
 wfmash --engine low-divergence -m -n 7 pangenome.fa >mappings.paf
 ```
 
+```sh
+# full map + align, exactly as wfmash 0.14 produced it
+wfmash --engine low-divergence -n 7 pangenome.fa >alignments.paf
+```
+
 Verified byte-identical to the wfmash-0.14-snapshot (7bf8988) output
 on both an 8-assembly yeast all-vs-all (1,622 mappings, identical
-MD5) and a two-sequence MHC comparison.
+MD5) and a two-sequence MHC comparison, in mapping mode (`-m`) as well
+as in full alignment mode.
 
-The engine currently supports mapping (`-m/--approx-map`) only;
-invocations without `-m` report an error while the 0.14 alignment
-stage (the full wflign aligner) is being vendored into the engine as
-well.  `--legacy` remains available on the mainline engine as a
+`--legacy` remains available on the mainline engine as a
 defaults-level approximation (see
 [Legacy compatibility mode](#legacy-compatibility-mode)); when output
 that is *identical* to 0.14 is required, use the engine instead.

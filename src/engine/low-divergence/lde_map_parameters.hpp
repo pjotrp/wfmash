@@ -1,8 +1,3 @@
-// Vendored from wfmash v0.14.1 (branch v0.14.1, commit 9b2a7388) for the
-// low-divergence engine (src/engine/low-divergence/).  Files are renamed
-// with an lde_ prefix and the mashmap/yeet/align namespaces are prefixed
-// lde_ so the 0.14-lineage engine code cannot collide with the mainline
-// 0.24 engine.  Provenance: waveygang/wfmash.
 /**
  * @file    map_parameters.hpp
  * @author  Chirag Jain <cjain7@gatech.edu>
@@ -13,6 +8,8 @@
 
 #include <vector>
 #include <unordered_set>
+#include <filesystem>
+namespace stdfs = std::filesystem;
 
 #include "engine/low-divergence/lde_ALeS.hpp"
 #include "engine/low-divergence/lde_base_types.hpp"
@@ -55,8 +52,8 @@ struct Parameters
     std::vector<std::string> refSequences;            //reference sequence(s)
     std::vector<std::string> querySequences;          //query sequence(s)
     std::string outFileName;                          //output file name
-    std::string saveIndexFilename;                    //output file name of index
-    std::string loadIndexFilename;                    //input file name of index
+    stdfs::path saveIndexFilename;                    //output file name of index
+    stdfs::path loadIndexFilename;                    //input file name of index
     bool split;                                       //Split read mapping (done if this is true)
     bool lower_triangular;                            // set to true if we should filter out half of the mappings
     bool skip_self;                                   //skip self mappings

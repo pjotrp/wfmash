@@ -1,8 +1,3 @@
-// Vendored from wfmash v0.14.1 (branch v0.14.1, commit 9b2a7388) for the
-// low-divergence engine (src/engine/low-divergence/).  Files are renamed
-// with an lde_ prefix and the mashmap/yeet/align namespaces are prefixed
-// lde_ so the 0.14-lineage engine code cannot collide with the mainline
-// 0.24 engine.  Provenance: waveygang/wfmash.
 /**
  * @file    winSketch.hpp
  * @brief   routines to index the reference 
@@ -14,15 +9,12 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cstring>
 #include <map>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-static inline bool hasSuffix(const std::string &s, const std::string &suffix) {
-  return s.size() >= suffix.size() &&
-         s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
-}
+#include <filesystem>
+namespace fs = std::filesystem;
 
 //#include <zlib.h>
 
@@ -37,7 +29,7 @@ static inline bool hasSuffix(const std::string &s, const std::string &suffix) {
 #include "common/prettyprint.hpp"
 #include "csv.h"
 
-//#include "engine/low-divergence/deps/sparsehash/dense_hash_map"
+//#include "common/sparsehash/dense_hash_map"
 //#include "common/parallel-hashmap/parallel_hashmap/phmap.h"
 //#include <abseil-cpp/absl/container/flat_hash_map.h>
 //#include <common/sparse-map/include/tsl/sparse_map.h>
@@ -109,23 +101,6 @@ namespace lde_skch
       MI_Map_t minmerPosLookupIndex;
       MI_Type minmerIndex;
 
-      // CSR-flattened position lookup, built by flattenPosLookup() at the end of
-      // construction when every position fits the packed uint64 key (packed_ok):
-      // per unique minmer an (offset,count) run into ipArena of encodePackedIP
-      // keys, per-key point order preserved verbatim. Frequent seeds' runs are
-      // dropped (their lookups can never happen: getSeedHits removes them from
-      // the query table first). minmerPosLookupIndex is destroyed after
-      // flattening; when !packed_ok it stays and consumers use it as before.
-      bool packed_ok = false;
-      std::vector<uint64_t> ipArena;
-      struct PosLookupRun {
-        uint64_t off;
-        uint32_t cnt;
-        uint32_t written;   // pass-2 fill cursor; equals cnt afterwards
-      };
-      ankerl::unordered_dense::map<MinmerMapKeyType, PosLookupRun> posLookupCSR;
-      size_t nUniqueMinmers = 0;   // minmerPosLookupIndex.size() before flattening
-
       private:
 
       /**
@@ -150,7 +125,7 @@ namespace lde_skch
             this->build();
             this->index();
             if (!param.saveIndexFilename.empty()) {
-              if (hasSuffix(param.saveIndexFilename, ".tsv")) {
+              if (param.saveIndexFilename.extension() == ".tsv") {
                 this->saveIndexTSV();
               } else {
                 this->saveIndexBinary();
@@ -189,7 +164,7 @@ namespace lde_skch
         //Create the thread pool 
         ThreadPool<InputSeqContainer, MI_Type> threadPool( [this](InputSeqContainer* e) {return buildHelper(e);}, param.threads);
         if (!param.loadIndexFilename.empty()) {
-          if (hasSuffix(param.loadIndexFilename, ".tsv")) {
+          if (param.loadIndexFilename.extension() == ".tsv") {
             this->loadIndexTSV();
           } else {
             this->loadIndexBinary();
@@ -208,7 +183,7 @@ namespace lde_skch
             allowed_target_names,
             param.target_prefix,
             [&](const std::string& seq_name,
-                std::string&& seq) {
+                const std::string& seq) {
                 // todo: offset_t is an 32-bit integer, which could cause problems
                 offset_t len = seq.length();
 
@@ -225,7 +200,7 @@ namespace lde_skch
                 else
                 {
                   if (param.loadIndexFilename.empty()) {
-                    threadPool.runWhenThreadAvailable(new InputSeqContainer(std::move(seq), seq_name, seqCounter));
+                    threadPool.runWhenThreadAvailable(new InputSeqContainer(seq, seq_name, seqCounter));
                     
                     //Collect output if available
                     while ( threadPool.outputAvailable() )
@@ -308,7 +283,7 @@ namespace lde_skch
        */
       void saveIndexBinary() 
       {
-        std::string indexFilename = param.saveIndexFilename;
+        fs::path indexFilename = fs::path(param.saveIndexFilename);
         indexFilename += ".index";
         std::ofstream outStream;
         outStream.open(indexFilename, std::ios::binary);
@@ -322,36 +297,14 @@ namespace lde_skch
        */
       void savePosListBinary() 
       {
-        std::string posListFilename = param.saveIndexFilename;
+        fs::path posListFilename = fs::path(param.saveIndexFilename);
         posListFilename += ".map";
         std::ofstream outStream;
         outStream.open(posListFilename, std::ios::binary);
-        typename MI_Map_t::size_type size = packed_ok ? posLookupCSR.size() : minmerPosLookupIndex.size();
+        typename MI_Map_t::size_type size = minmerPosLookupIndex.size();
         outStream.write((char*)&size, sizeof(size));
 
-        if (packed_ok)
-        {
-          // Runs saved pre-pruning (this runs before computeFreqHist), decoded
-          // back to the legacy on-disk record layout.
-          std::vector<IntervalPoint> ipVec;
-          for (auto& [hash, run] : posLookupCSR)
-          {
-            MinmerMapKeyType key = hash;
-            outStream.write((char*)&key, sizeof(key));
-            typename MI_Type::size_type sz = run.cnt;
-            outStream.write((char*)&sz, sizeof(sz));
-            ipVec.clear();
-            for (uint32_t i = 0; i < run.cnt; ++i) {
-              IntervalPoint ip = decodePackedIP(ipArena[run.off + i]);
-              ip.hash = hash;
-              ipVec.push_back(ip);
-            }
-            outStream.write((char*)&ipVec[0], ipVec.size() * sizeof(MinmerMapValueType::value_type));
-          }
-          return;
-        }
-
-        for (auto& [hash, ipVec] : minmerPosLookupIndex)
+        for (auto& [hash, ipVec] : minmerPosLookupIndex) 
         {
           MinmerMapKeyType key = hash;
           outStream.write((char*)&key, sizeof(key));
@@ -384,7 +337,7 @@ namespace lde_skch
        */
       void loadIndexBinary() 
       {
-        std::string indexFilename = param.loadIndexFilename;
+        fs::path indexFilename = fs::path(param.loadIndexFilename);
         indexFilename += ".index";
         std::ifstream inStream;
         inStream.open(indexFilename, std::ios::binary);
@@ -399,7 +352,7 @@ namespace lde_skch
        */
       void loadPosListBinary() 
       {
-        std::string posListFilename = param.loadIndexFilename;
+        fs::path posListFilename = fs::path(param.loadIndexFilename);
         posListFilename += ".map";
         std::ifstream inStream;
         inStream.open(posListFilename, std::ios::binary);
@@ -425,84 +378,29 @@ namespace lde_skch
        */
       void index()
       {
-        // The packed CSR representation needs every position to fit 32 bits and
-        // seqIds 31 bits; this depends only on metadata, so decide here.
-        packed_ok = metadata.size() <= (size_t)0x7FFFFFFF;
-        for (const auto& m : metadata) {
-          if (m.len < 0 || (uint64_t)m.len >= (UINT64_C(1) << 32)) { packed_ok = false; break; }
-        }
         //Parse all the minmers and push into the map
         //minmerPosLookupIndex.set_empty_key(0);
         if (param.loadIndexFilename.empty())
         {
-          if (packed_ok)
+          for(auto &mi : minmerIndex)
           {
-            this->buildPosLookupCSR();
-          }
-          else
-          {
-            for(auto &mi : minmerIndex)
+            // [hash value -> info about minmer]
+            if (minmerPosLookupIndex[mi.hash].size() == 0 
+                || minmerPosLookupIndex[mi.hash].back().hash != mi.hash 
+                || minmerPosLookupIndex[mi.hash].back().pos != mi.wpos)
             {
-              // [hash value -> info about minmer]
-              auto& ipVec = minmerPosLookupIndex[mi.hash];
-              if (ipVec.size() == 0
-                  || ipVec.back().hash != mi.hash
-                  || ipVec.back().pos != mi.wpos)
-              {
-                ipVec.push_back(IntervalPoint {mi.wpos, mi.hash, mi.seqId, side::OPEN});
-                ipVec.push_back(IntervalPoint {mi.wpos_end, mi.hash, mi.seqId, side::CLOSE});
-              } else {
-                ipVec.back().pos = mi.wpos_end;
-              }
+              minmerPosLookupIndex[mi.hash].push_back(IntervalPoint {mi.wpos, mi.hash, mi.seqId, side::OPEN});
+              minmerPosLookupIndex[mi.hash].push_back(IntervalPoint {mi.wpos_end, mi.hash, mi.seqId, side::CLOSE});
+            } else {
+              minmerPosLookupIndex[mi.hash].back().pos = mi.wpos_end;
             }
           }
         }
         else
         {
-          // Loaded legacy-format posList: keep the legacy map path.
-          packed_ok = false;
           this->loadPosListBinary();
         }
-        nUniqueMinmers = packed_ok ? posLookupCSR.size() : minmerPosLookupIndex.size();
-        std::cerr << "[mashmap::lde_skch::Sketch::index] unique minmers = " << nUniqueMinmers << std::endl;
-      }
-
-      // Build the position lookup directly as a CSR arena of packed uint64 keys
-      // (no per-key vectors): pass 1 counts each key's points with index()'s
-      // run-merging rule, pass 2 fills the runs in the identical per-key order
-      // the legacy vectors would have had.
-      void buildPosLookupCSR()
-      {
-        for (const auto& mi : minmerIndex) {
-          auto [it, fresh] = posLookupCSR.try_emplace(mi.hash, PosLookupRun{0, 0, 0});
-          auto& run = it->second;
-          // run.off doubles as the last CLOSE position during this pass
-          if (run.cnt == 0 || (offset_t)run.off != mi.wpos) {
-            run.cnt += 2;
-          }
-          run.off = (uint64_t)mi.wpos_end;
-        }
-        uint64_t total = 0;
-        for (auto& e : posLookupCSR) {
-          const uint32_t c = e.second.cnt;
-          e.second.off = total;
-          e.second.written = 0;
-          total += c;
-        }
-        ipArena.assign(total, 0);
-        for (const auto& mi : minmerIndex) {
-          auto& run = posLookupCSR[mi.hash];
-          if (run.written == 0
-              || decodePackedIP(ipArena[run.off + run.written - 1]).pos != mi.wpos) {
-            ipArena[run.off + run.written++] = encodePackedIP(IntervalPoint{mi.wpos, mi.hash, mi.seqId, side::OPEN});
-            ipArena[run.off + run.written++] = encodePackedIP(IntervalPoint{mi.wpos_end, mi.hash, mi.seqId, side::CLOSE});
-          } else {
-            // Merge extends the existing CLOSE point's position but keeps its
-            // seqId (index() mutated only .pos; merges can chain across seqIds).
-            uint64_t& last = ipArena[run.off + run.written - 1];
-            last = (last & ~((uint64_t)0xFFFFFFFFULL << 1)) | ((uint64_t)mi.wpos_end << 1);
-          }
-        }
+        std::cerr << "[mashmap::lde_skch::Sketch::index] unique minmers = " << minmerPosLookupIndex.size() << std::endl;
       }
 
       /**
@@ -511,16 +409,11 @@ namespace lde_skch
        */
       void computeFreqHist()
       {
-          if (packed_ok ? !posLookupCSR.empty() : !minmerPosLookupIndex.empty()) {
+          if (!minmerPosLookupIndex.empty()) {
               //1. Compute histogram
 
-              if (packed_ok) {
-                for (auto &e : this->posLookupCSR)
-                    this->minmerFreqHistogram[e.second.cnt] += 1;
-              } else {
-                for (auto &e : this->minmerPosLookupIndex)
-                    this->minmerFreqHistogram[e.second.size()] += 1;
-              }
+              for (auto &e : this->minmerPosLookupIndex)
+                  this->minmerFreqHistogram[e.second.size()] += 1;
 
               std::cerr << "[mashmap::lde_skch::Sketch::computeFreqHist] Frequency histogram of minmer interval points = "
                         << *this->minmerFreqHistogram.begin() << " ... " << *this->minmerFreqHistogram.rbegin()
@@ -528,7 +421,7 @@ namespace lde_skch
 
               //2. Compute frequency threshold to ignore most frequent minmers
 
-              int64_t totalUniqueMinmers = this->nUniqueMinmers;
+              int64_t totalUniqueMinmers = this->minmerPosLookupIndex.size();
               int64_t minmerToIgnore = totalUniqueMinmers * param.kmer_pct_threshold / 100;
 
               int64_t sum = 0;
@@ -594,17 +487,9 @@ namespace lde_skch
 
       void computeFreqSeedSet()
       {
-        if (packed_ok) {
-          for(auto &e : this->posLookupCSR) {
-            if (e.second.cnt >= (uint32_t)this->freqThreshold) {
-              this->frequentSeeds.insert(e.first);
-            }
-          }
-        } else {
-          for(auto &e : this->minmerPosLookupIndex) {
-            if (e.second.size() >= this->freqThreshold) {
-              this->frequentSeeds.insert(e.first);
-            }
+        for(auto &e : this->minmerPosLookupIndex) {
+          if (e.second.size() >= this->freqThreshold) {
+            this->frequentSeeds.insert(e.first);
           }
         }
       }
@@ -612,30 +497,11 @@ namespace lde_skch
       void dropFreqSeedSet()
       {
         this->minmerIndex.erase(
-          std::remove_if(minmerIndex.begin(), minmerIndex.end(), [&]
+          std::remove_if(minmerIndex.begin(), minmerIndex.end(), [&] 
             (auto& mi) {return this->frequentSeeds.find(mi.hash) != this->frequentSeeds.end();}
           ), minmerIndex.end()
         );
-        if (packed_ok && !frequentSeeds.empty()) {
-          // Compact the arena over the surviving keys (iteration order equals
-          // ascending offset order: the map is untouched since buildPosLookupCSR),
-          // then drop the frequent keys. Their lookups can never happen anyway:
-          // getSeedHits removes frequent hashes from the query table first.
-          uint64_t w = 0;
-          for (auto& e : posLookupCSR) {
-            if (frequentSeeds.find(e.first) != frequentSeeds.end()) continue;
-            if (e.second.off != w) {
-              std::memmove(ipArena.data() + w, ipArena.data() + e.second.off,
-                           (size_t)e.second.cnt * sizeof(uint64_t));
-            }
-            e.second.off = w;
-            w += e.second.cnt;
-          }
-          ipArena.resize(w);
-          for (const auto& h : frequentSeeds) posLookupCSR.erase(h);
-        }
       }
-
 
       bool isFreqSeed(hash_t h) const
       {
