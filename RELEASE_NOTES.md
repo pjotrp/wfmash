@@ -1024,3 +1024,32 @@ I'm still seeing problems with memory allocation in WFA, but this commit does pr
 So it might be helpful to others, and it's reasonably safe to use :stuck_out_tongue_winking_eye:
 
 Happy aligning!
+
+### Low-divergence engine (branch `low-divergence-engine`)
+
+* One binary, two engines: the **0.24 engine runs by default**;
+  `wfmash --engine low-divergence ...` opts in to the 0.14 lineage.
+* New `--engine` CLI concept: `src/engine/NAME/` hosts complete,
+  self-contained engines with their own parameter parsing;
+  `wfmash --engine NAME ...` dispatches the raw argv to the engine
+  before the mainline parser runs.
+* First engine: `low-divergence` — the wfmash 0.14 lineage (mashmap
+  v3.1.1-era mapping plus the wflign aligner) vendored from the
+  workshop's 0.14 snapshot (7bf8988) into `src/engine/low-divergence/`
+  with `lde_`-prefixed files and `lde_`-prefixed namespaces.  Mapping
+  and alignment output are byte-identical to the 0.14 snapshot on
+  yeast all-vs-all (1,622 mappings) and MHC inputs, in both `-m` and
+  full alignment mode.
+* WFA2-lib is vendored into the engine
+  (`src/engine/low-divergence/deps/lde_WFA2-lib`, 0.14-snapshot
+  revision) with every linked C symbol renamed `lde_` and the C++
+  binding namespace renamed `wfa`→`lde_wfa`.  The mainline WFA2
+  revision differs and produces different alignment boundaries, and
+  sharing one copy caused symbol/ODR collisions between the two
+  engines.
+* The engine no longer depends on mainline helpers
+  (`wfmash::handy_parameter`, `wfmash::is_a_number`); it carries its
+  own copies.  A `lde_standalone` test target builds the engine alone,
+  with no mainline sources linked.
+* Portability fix: added missing `<cmath>` includes in the vendored
+  wflign code (GCC 14).

@@ -232,6 +232,12 @@ old version's query-target pairs and 99.8% of the bases covered by its
 mappings, while reporting the additional short homologies that the old
 25 kb block filter removed (2,243 vs 1,622 mappings).
 
+When the old *output itself* is what matters — regression baselines,
+published pipelines — use the vendored 0.14 engine instead:
+`--engine low-divergence` runs the actual 0.14 code and is
+byte-identical to a wfmash-0.14 binary (see
+[Mapping engines](#mapping-engines)).
+
 ## Scaffolding for Large-Scale Alignments
 
 Scaffolding is a powerful feature for filtering alignments to focus on syntenic regions. It's particularly useful for:
@@ -625,3 +631,72 @@ If you encounter memory issues:
 - **Chirag Jain, Sergey Koren, Alexander Dilthey, Adam M. Phillippy, and Srinivas Aluru**. ["A Fast Adaptive Algorithm for Computing Whole-Genome Homology Maps"](https://doi.org/10.1093/bioinformatics/bty597). *Bioinformatics (ECCB issue)*, 2018.
 
 - **Chirag Jain, Alexander Dilthey, Sergey Koren, Srinivas Aluru, and Adam M. Phillippy**. ["A fast approximate algorithm for mapping long reads to large reference databases."](https://link.springer.com/chapter/10.1007/978-3-319-56970-3_5) In *International Conference on Research in Computational Molecular Biology*, Springer, Cham, 2017.
+
+## Mapping engines
+
+One wfmash binary can carry more than one complete aligner.  Without
+an engine selection the **mainline 0.24 engine** runs — the current
+mashmap v3.5-based implementation with its TaskFlow pipeline and
+default parameters.  Alternative engines are selected with
+`--engine NAME`: each is a complete, self-contained implementation
+vendored under `src/engine/NAME/` with its own parameter parsing —
+engine invocations are parsed and executed by the engine's own code,
+not translated through the current CLI.  New engines can be added as
+new directories without touching the mainline.
+
+```sh
+# default: the 0.24 engine
+wfmash -n 7 pangenome.fa >alignments.paf
+
+# opt in to the 0.14-era engine
+wfmash --engine low-divergence -n 7 pangenome.fa >alignments.paf
+```
+
+Engine selection is position-independent (`wfmash -m --engine
+low-divergence ...` works too); `--engine` accepts only one argument
+and is stripped from the engine's own argv.
+
+### `--engine low-divergence`
+
+The `low-divergence` engine is the wfmash 0.14 lineage — mashmap
+v3.1.1-era mapping plus the wflign aligner — vendored from the
+workshop's 0.14 snapshot 7bf8988 (`waveygang/wfmash`).  Engine code
+lives in `src/engine/low-divergence/` under `lde_`-prefixed file names
+with the `skch`, `yeet` and `align` namespaces prefixed `lde_`, so it
+cannot collide with the mainline 0.24 engine.  WFA2-lib is vendored
+alongside it (`src/engine/low-divergence/deps/lde_WFA2-lib`) with every
+linked symbol renamed, because the 0.14 snapshot uses a different WFA2
+revision than the mainline and their behaviour differs.  It accepts the
+0.14-era flag set (`wfmash --engine low-divergence --help`):
+
+```sh
+# all-vs-all mapping, exactly as wfmash 0.14 produced it
+wfmash --engine low-divergence -m -n 7 pangenome.fa >mappings.paf
+```
+
+```sh
+# full map + align, exactly as wfmash 0.14 produced it
+wfmash --engine low-divergence -n 7 pangenome.fa >alignments.paf
+```
+
+Verified byte-identical to the wfmash-0.14-snapshot (7bf8988) output
+on both an 8-assembly yeast all-vs-all (1,622 mappings, identical
+MD5) and a two-sequence MHC comparison, in mapping mode (`-m`) as well
+as in full alignment mode.
+
+### Which one should I run?
+
+* **Default (no flag): the 0.24 engine.** Finer 1 kb granularity,
+  ANI-based identity presets, chain-annotated PAFs, and the 0.24
+  aligner.  Workflows written for current wfmash need nothing.
+* **`--engine low-divergence`: the 0.14.x engine.** Workflows written
+  and verified against wfmash 0.14 (5 kb segments, 25 kb block floor,
+  one mapping per segment, WFlign alignment) run here unchanged and
+  produce the same bytes they always did.
+* **`--legacy` (mainline, no engine):** a defaults-level approximation
+  of the 0.14 behaviour *on the 0.24 engine* — 99.8% of the old
+  chains' bases covered, but not byte-identical (see
+  [Legacy compatibility mode](#legacy-compatibility-mode)).  When
+  output identical to 0.14 is required — regression baselines,
+  published pipelines, reproducibility checks — use
+  `--engine low-divergence` instead.
