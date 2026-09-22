@@ -243,11 +243,14 @@ namespace skch
         {
           if (param.skip_prefix)
           {
-            int currGroup = idManager.getRefGroup(subrange_begin->refSeqId);
-            subrange_end = std::find_if_not(subrange_begin, unfilteredMappings.end(), 
-                [&currGroup, &idManager] (const auto& candidate) {
-                    return currGroup == idManager.getRefGroup(candidate.refSeqId);
-            });
+            // Names without delimiter share one group
+            auto group = [&](seqno_t id) {
+                return idManager.getSequenceName(id).find(param.prefix_delim) == std::string::npos
+                    ? 0 : idManager.getRefGroup(id);
+            };
+            int currGroup = group(subrange_begin->refSeqId);
+            subrange_end = std::find_if_not(subrange_begin, unfilteredMappings.end(),
+                [&] (const auto& candidate) { return currGroup == group(candidate.refSeqId); });
           }
           else
           {
