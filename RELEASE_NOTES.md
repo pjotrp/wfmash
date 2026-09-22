@@ -1024,3 +1024,19 @@ I'm still seeing problems with memory allocation in WFA, but this commit does pr
 So it might be helpful to others, and it's reasonably safe to use :stuck_out_tongue_winking_eye:
 
 Happy aligning!
+
+### Low-divergence mapping engine (branch `low-divergence-engine`)
+
+* New `--engine` CLI concept: `src/engine/NAME/` hosts complete,
+  self-contained engines with their own parameter parsing;
+  `wfmash --engine NAME ...` dispatches the raw argv to the engine
+  before the mainline parser runs.
+* First engine: `low-divergence` — the wfmash 0.14 lineage (mashmap
+  v3.1.1-era mapping) vendored from the `v0.14.1` branch into
+  `src/engine/low-divergence/` with `lde_`-prefixed files and
+  `lde_`-prefixed namespaces.  Mapping output is byte-identical to the
+  0.14 snapshot on yeast all-vs-all (1,622 mappings) and MHC inputs.
+  Mapping-only for now (`-m`); the vendored wflign aligner is the
+  follow-up step.
+* Portability fix: added missing `<cmath>` includes in the vendored
+  wflign code (GCC 14).

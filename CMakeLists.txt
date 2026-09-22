@@ -287,7 +287,8 @@ endif()
 
 add_executable(wfmash
   src/common/utils.cpp
-  src/interface/main.cpp)
+  src/interface/main.cpp
+  src/engine/low-divergence/lde_main.cpp)
 
 # Add dependencies after target creation
 if (BUILD_DEPS)

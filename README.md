@@ -625,3 +625,45 @@ If you encounter memory issues:
 - **Chirag Jain, Sergey Koren, Alexander Dilthey, Adam M. Phillippy, and Srinivas Aluru**. ["A Fast Adaptive Algorithm for Computing Whole-Genome Homology Maps"](https://doi.org/10.1093/bioinformatics/bty597). *Bioinformatics (ECCB issue)*, 2018.
 
 - **Chirag Jain, Alexander Dilthey, Sergey Koren, Srinivas Aluru, and Adam M. Phillippy**. ["A fast approximate algorithm for mapping long reads to large reference databases."](https://link.springer.com/chapter/10.1007/978-3-319-56970-3_5) In *International Conference on Research in Computational Molecular Biology*, Springer, Cham, 2017.
+
+## Mapping engines
+
+wfmash can run alternative *mapping engines* selected with
+`--engine NAME`.  Each engine is a complete, self-contained
+implementation vendored under `src/engine/NAME/` with its own
+parameter parsing — engine invocations are parsed and executed by the
+engine's own code, not translated through the current CLI.  New
+engines can be added as new directories without touching the
+mainline.
+
+### `--engine low-divergence`
+
+The `low-divergence` engine is the wfmash 0.14 lineage (mashmap
+v3.1.1-era mapping), vendored from the maintained `v0.14.1` branch
+(`waveygang/wfmash`, branch head 9b2a7388).  Engine code lives in
+`src/engine/low-divergence/` under `lde_`-prefixed file names with the
+`skch`, `yeet` and `align` namespaces prefixed `lde_`, so it cannot
+collide with the mainline 0.24 engine.  It accepts the 0.14-era flag
+set (`wfmash --engine low-divergence --help`):
+
+```sh
+# all-vs-all mapping, exactly as wfmash 0.14 produced it
+wfmash --engine low-divergence -m -n 7 pangenome.fa >mappings.paf
+```
+
+Verified byte-identical to the wfmash-0.14-snapshot (7bf8988) output
+on both an 8-assembly yeast all-vs-all (1,622 mappings, identical
+MD5) and a two-sequence MHC comparison.
+
+The engine currently supports mapping (`-m/--approx-map`) only;
+invocations without `-m` report an error while the 0.14 alignment
+stage (the full wflign aligner) is being vendored into the engine as
+well.  `--legacy` remains available on the mainline engine as a
+defaults-level approximation (see
+[Legacy compatibility mode](#legacy-compatibility-mode)); when output
+that is *identical* to 0.14 is required, use the engine instead.
+
+```sh
+# engine selection is position-independent
+wfmash -m --engine low-divergence -n 7 pangenome.fa >mappings.paf
+```
