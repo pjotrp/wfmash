@@ -1025,6 +1025,20 @@ So it might be helpful to others, and it's reasonably safe to use :stuck_out_ton
 
 Happy aligning!
 
+### mappingFilter skip-prefix grouping fix (merged into `main`)
+
+* Fixed the reference-group subrange scan in the mapping filter
+  (`src/map/include/mappingFilter.hpp`, active with `--skip-prefix`):
+  the scan treated reference names *without* the prefix delimiter as
+  one hardcoded shared group (a `group()` lambda returning 0), instead
+  of asking the sequence index for each sequence's actual group.
+  Since `getRefGroup()` returns the per-sequence `groupId` computed at
+  index time, the hardcoded-0 shortcut could mis-group delimiter-less
+  names and extend filter subranges across reference groups, corrupting
+  the per-group top-`n` selection.  The scan now captures the first
+  mapping's group and compares candidates against
+  `idManager.getRefGroup()`, as before the regression.
+
 ### Low-divergence engine (merged into `main`)
 
 * One binary, two engines: the **0.24 engine runs by default**;
