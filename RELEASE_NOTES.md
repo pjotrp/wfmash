@@ -1025,7 +1025,7 @@ So it might be helpful to others, and it's reasonably safe to use :stuck_out_ton
 
 Happy aligning!
 
-### Low-divergence engine (branch `low-divergence-engine`)
+### Low-divergence engine (merged into `main`)
 
 * One binary, two engines: the **0.24 engine runs by default**;
   `wfmash --engine low-divergence ...` opts in to the 0.14 lineage.
@@ -1034,22 +1034,39 @@ Happy aligning!
   `wfmash --engine NAME ...` dispatches the raw argv to the engine
   before the mainline parser runs.
 * First engine: `low-divergence` — the wfmash 0.14 lineage (mashmap
-  v3.1.1-era mapping plus the wflign aligner) vendored from the
-  workshop's 0.14 snapshot (7bf8988) into `src/engine/low-divergence/`
-  with `lde_`-prefixed files and `lde_`-prefixed namespaces.  Mapping
-  and alignment output are byte-identical to the 0.14 snapshot on
-  yeast all-vs-all (1,622 mappings) and MHC inputs, in both `-m` and
-  full alignment mode.
+  v3.1.1-era mapping plus the wflign aligner), now vendored from the
+  maintained **v0.14.1 branch head (9b2a7388)** — the revision pggb
+  master pins — into `src/engine/low-divergence/` with `lde_`-prefixed
+  files and `lde_`-prefixed namespaces.  Mapping and alignment output
+  are byte-identical to the wfmash-0.14.1-0.9b2a7388 binary on yeast
+  all-vs-all (1,622 mappings), MHC map+align at `-p 95` and at the
+  default cutoff, with clean exits; at workshop scale (623 alignments
+  over 15 primate assemblies) the v0.14.1 branch and the 7bf8988
+  snapshot the engine originally vendored produce byte-identical
+  output, so the CWL regression suite is unaffected.
+* The v0.14.1 re-vendor carries the branch's fixes on top of the
+  snapshot: WFA2 aligner reuse across records (`thread_local`), lazier
+  traceback handling in wflign patching, the k-mer overfiltering fix
+  and the unaligned-load fix.  `agc_index.hpp` is vendored again
+  (`lde_agc_index.hpp` — v0.14.1's seqiter includes it); without
+  `WFMASH_HAVE_AGC` it compiles down to the `is_agc_file()` stub.
 * WFA2-lib is vendored into the engine
-  (`src/engine/low-divergence/deps/lde_WFA2-lib`, 0.14-snapshot
-  revision) with every linked C symbol renamed `lde_` and the C++
-  binding namespace renamed `wfa`→`lde_wfa`.  The mainline WFA2
-  revision differs and produces different alignment boundaries, and
-  sharing one copy caused symbol/ODR collisions between the two
-  engines.
+  (`src/engine/low-divergence/deps/lde_WFA2-lib`, at the v0.14.1
+  revision — it now carries the new `cigar_utils` API; the renamed
+  symbol list grew from 430 to 437) with every linked C symbol renamed
+  `lde_` and the C++ binding namespace renamed `wfa`→`lde_wfa`.  The
+  mainline WFA2 revision differs and produces different alignment
+  boundaries, and sharing one copy caused symbol/ODR collisions
+  between the two engines (which also corrupted the mainline aligner
+  through merged inline symbols).
 * The engine no longer depends on mainline helpers
   (`wfmash::handy_parameter`, `wfmash::is_a_number`); it carries its
   own copies.  A `lde_standalone` test target builds the engine alone,
   with no mainline sources linked.
+* `lde_main` no longer falls off the end without a return statement:
+  legal for `main()` (implicit `return 0`), undefined behaviour after
+  the rename — GCC turned the cleanup path into an `ud2` trap, crashing
+  every engine alignment run after it had written its complete,
+  correct output.
 * Portability fix: added missing `<cmath>` includes in the vendored
   wflign code (GCC 14).

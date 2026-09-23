@@ -660,7 +660,8 @@ and is stripped from the engine's own argv.
 
 The `low-divergence` engine is the wfmash 0.14 lineage — mashmap
 v3.1.1-era mapping plus the wflign aligner — vendored from the
-workshop's 0.14 snapshot 7bf8988 (`waveygang/wfmash`).  Engine code
+maintained **v0.14.1 branch head (9b2a7388)** of `waveygang/wfmash`
+(the revision pggb master pins).  Engine code
 lives in `src/engine/low-divergence/` under `lde_`-prefixed file names
 with the `skch`, `yeet` and `align` namespaces prefixed `lde_`, so it
 cannot collide with the mainline 0.24 engine.  WFA2-lib is vendored
@@ -679,7 +680,7 @@ wfmash --engine low-divergence -m -n 7 pangenome.fa >mappings.paf
 wfmash --engine low-divergence -n 7 pangenome.fa >alignments.paf
 ```
 
-Verified byte-identical to the wfmash-0.14-snapshot (7bf8988) output
+Verified byte-identical to the wfmash-0.14.1-0.9b2a7388 output
 on both an 8-assembly yeast all-vs-all (1,622 mappings, identical
 MD5) and a two-sequence MHC comparison, in mapping mode (`-m`) as well
 as in full alignment mode.
