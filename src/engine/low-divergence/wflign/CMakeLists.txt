@@ -80,7 +80,12 @@ target_link_libraries(lde_wflign PUBLIC lde_wfa2 z)
 
 # Standalone engine test binary: only the low-divergence engine, no
 # mainline sources linked at all. Used to isolate mainline-vs-engine
-# link-context effects.
+# link-context effects.  It assumes system htslib/gsl/z libraries and
+# default include paths, so it is only configured for non-vendored,
+# non-static builds; under VENDOR_EVERYTHING/BUILD_STATIC the vendored
+# headers and archives live outside the default paths and the target
+# would not resolve (this broke the macOS CI build).
+if (NOT BUILD_STATIC AND NOT VENDOR_EVERYTHING)
 add_executable(lde_standalone ${CMAKE_SOURCE_DIR}/src/engine/low-divergence/lde_main.cpp)
 target_include_directories(lde_standalone PRIVATE
   ${CMAKE_SOURCE_DIR}/src
@@ -95,3 +100,4 @@ target_link_libraries(lde_standalone lde_wflign hts z pthread gsl gslcblas)
 file(WRITE ${CMAKE_BINARY_DIR}/lde_standalone_main.cpp
 "int lde_main(int argc, char** argv);\nint main(int argc, char** argv) { return lde_main(argc, argv); }\n")
 target_sources(lde_standalone PRIVATE ${CMAKE_BINARY_DIR}/lde_standalone_main.cpp)
+endif()
