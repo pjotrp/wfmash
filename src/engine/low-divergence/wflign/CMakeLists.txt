@@ -37,6 +37,7 @@ add_library(lde_wfa2 STATIC
   ${CMAKE_CURRENT_SOURCE_DIR}/../deps/lde_WFA2-lib/alignment/affine2p_penalties.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../deps/lde_WFA2-lib/alignment/affine_penalties.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../deps/lde_WFA2-lib/alignment/cigar.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../deps/lde_WFA2-lib/alignment/cigar_utils.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../deps/lde_WFA2-lib/alignment/score_matrix.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../deps/lde_WFA2-lib/system/mm_allocator.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../deps/lde_WFA2-lib/system/mm_stack.c

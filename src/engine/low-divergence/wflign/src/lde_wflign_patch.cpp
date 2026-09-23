@@ -371,6 +371,28 @@ void write_merged_alignment(
                            : -1;	
                 };
 
+        // One thread-reused head/tail patch aligner shared by all patch events
+        // (was a fresh MemoryMed aligner per event). The heuristic is re-applied
+        // per event, leaving it state-equal to a fresh instance; nothing may
+        // call setMaxAlignmentSteps on it (that field persists across aligns,
+        // and fresh instances carried INT_MAX).
+        auto get_head_tail_aligner = [&]() -> lde_wfa::WFAlignerGapAffine2Pieces* {
+            thread_local std::unique_ptr<lde_wfa::WFAlignerGapAffine2Pieces> head_tail_aligner;
+            if (!head_tail_aligner) {
+                head_tail_aligner = std::make_unique<lde_wfa::WFAlignerGapAffine2Pieces>(
+                        0,
+                        convex_penalties.mismatch,
+                        convex_penalties.gap_opening1,
+                        convex_penalties.gap_extension1,
+                        convex_penalties.gap_opening2,
+                        convex_penalties.gap_extension2,
+                        lde_wfa::WFAligner::Alignment,
+                        lde_wfa::WFAligner::MemoryMed);
+            }
+            head_tail_aligner->setHeuristicWFmash(min_wf_length,max_dist_threshold);
+            return head_tail_aligner.get();
+        };
+
         auto patching = [&query, &query_name, &query_length, &query_start,
                 &query_offset, &target, &target_name,
                 &target_length_mut, &target_start, &target_offset,
@@ -381,7 +403,8 @@ void write_merged_alignment(
                 &distance_close_big_enough_indels, &min_wf_length,
                 &max_dist_threshold, &wf_aligner,
                 &convex_penalties,
-                &chain_gap, &max_patching_score
+                &chain_gap, &max_patching_score,
+                &get_head_tail_aligner
 #ifdef WFA_PNG_TSV_TIMING
                 ,&emit_patching_tsv,
                 &out_patching_tsv
@@ -391,6 +414,9 @@ void write_merged_alignment(
                                    const uint16_t &min_wfa_head_tail_patch_length,
                                    const uint16_t &min_wfa_patch_length,
                                    const uint16_t &max_dist_to_look_at) {
+            // Patched CIGAR is ~unpatched size plus gap-fill ops; reserve to avoid
+            // repeated reallocation of this per-alignment vector (capacity only).
+            patched.reserve(patched.size() + unpatched.size());
             auto q = unpatched.begin();
 
             uint64_t query_pos = query_start;
@@ -543,17 +569,7 @@ void write_merged_alignment(
 //                        }
 //                        std::cerr << std::endl;
 
-                        lde_wfa::WFAlignerGapAffine2Pieces* wf_aligner_heads =
-                                new lde_wfa::WFAlignerGapAffine2Pieces(
-                                        0,
-                                        convex_penalties.mismatch,
-                                        convex_penalties.gap_opening1,
-                                        convex_penalties.gap_extension1,
-                                        convex_penalties.gap_opening2,
-                                        convex_penalties.gap_extension2,
-                                        lde_wfa::WFAligner::Alignment,
-                                        lde_wfa::WFAligner::MemoryMed);
-                        wf_aligner_heads->setHeuristicWFmash(min_wf_length,max_dist_threshold);
+                        lde_wfa::WFAlignerGapAffine2Pieces* wf_aligner_heads = get_head_tail_aligner();
                         const int status = wf_aligner_heads->alignEndsFree(
                                 target_rev.c_str(),target_rev.size(),0,0,
                                 query_rev.c_str(),query_rev.size(),0,query_rev.size());
@@ -615,7 +631,6 @@ void write_merged_alignment(
                             }
                             //std::cerr << "\n";
                         }
-                        delete wf_aligner_heads;
                     }
                 }
 
@@ -1058,17 +1073,7 @@ void write_merged_alignment(
                     //              << target_delta_x
                     //              << std::endl;
 
-                        lde_wfa::WFAlignerGapAffine2Pieces* wf_aligner_tails =
-                                new lde_wfa::WFAlignerGapAffine2Pieces(
-                                        0,
-                                        convex_penalties.mismatch,
-                                        convex_penalties.gap_opening1,
-                                        convex_penalties.gap_extension1,
-                                        convex_penalties.gap_opening2,
-                                        convex_penalties.gap_extension2,
-                                        lde_wfa::WFAligner::Alignment,
-                                        lde_wfa::WFAligner::MemoryMed);
-                        wf_aligner_tails->setHeuristicWFmash(min_wf_length,max_dist_threshold);
+                        lde_wfa::WFAlignerGapAffine2Pieces* wf_aligner_tails = get_head_tail_aligner();
                         const int status = wf_aligner_tails->alignEndsFree(
                                 target - target_pointer_shift + target_pos, target_delta_x,0,0,
                                 query + query_pos, query_delta,0,query_delta);
@@ -1134,7 +1139,6 @@ void write_merged_alignment(
                                 patched.push_back('D');
                             }
                         }
-                        delete wf_aligner_tails;
                     }
                 }
 
@@ -1167,6 +1171,7 @@ void write_merged_alignment(
             std::vector<char> erodev;
             {
                 std::vector<char> rawv;
+                rawv.reserve(query_length + query_length / 4);
 
                 // copy
 #ifdef WFLIGN_DEBUG
@@ -1254,6 +1259,7 @@ void write_merged_alignment(
 #endif
 
                 // erode by removing matches < k
+                erodev.reserve(rawv.size() + 16);
                 for (uint64_t i = 0; i < rawv.size();) {
                     if (rawv[i] == 'M' || rawv[i] == 'X') {
                         uint64_t j = i;
@@ -1343,8 +1349,8 @@ void write_merged_alignment(
             }
 #endif
 
-            // normalize: sort so that I<D and otherwise leave it as-is
-            sort_indels(tracev);
+            // (a sort_indels(tracev) call sat here, but tracev is not written
+            // until the second patching round below: it was a no-op)
         }
 
         //std::cerr << "SECOND PATCH ROUND" << std::endl;
@@ -1857,14 +1863,19 @@ double float2phred(const double& prob) {
 }
 
 void sort_indels(std::vector<char>& v) {
+    // Sorting a two-symbol run descending means all 'I's then all 'D's:
+    // count and refill instead of std::sort.
     auto f = v.begin();
     while (f != v.end()) {
         auto j = f;
+        size_t num_i = 0;
         while (j != v.end() && (*j == 'D' || *j == 'I')) {
+            num_i += (*j == 'I');
             ++j;
         }
         if (j != f) {
-            std::sort(f, j, [](char a, char b) { return b < a; });
+            std::fill(f, f + num_i, 'I');
+            std::fill(f + num_i, j, 'D');
             f = j;
         } else {
             ++f;
