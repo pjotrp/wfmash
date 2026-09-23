@@ -29,6 +29,7 @@
 //External includes
 #include "common/args.hxx"
 #include "engine/low-divergence/lde_ALeS.hpp"
+#include "engine/low-divergence/lde_agc_index.hpp"
 
 int lde_main(int argc, char** argv) {
     /*
@@ -97,7 +98,7 @@ int lde_main(int argc, char** argv) {
         for(const auto &fileName : map_parameters.querySequences) {
             // check if there is a .fai
             std::string fai_name = fileName + ".fai";
-            if (fs::exists(fai_name)) {
+            if ((access((fai_name).c_str(), F_OK) == 0)) {
                 // if so, process the .fai to determine our sequence length
                 std::string line;
                 std::ifstream in(fai_name.c_str());
@@ -107,7 +108,21 @@ int lde_main(int argc, char** argv) {
                     const uint64_t seq_len = std::stoull(line_split[1]);
                     seqName_to_seqCounterAndLen[seq_name] = std::make_pair(seqCounter++,  seq_len);
                 }
-            } else {
+            }
+#ifdef WFMASH_HAVE_AGC
+            else if (agcidx::is_agc_file(fileName)) {
+                // AGC: get lengths from archive metadata (GetCtgLen), without decompressing sequences
+                agcidx::AgcIndex agc;
+                if (!agc.open(fileName)) {
+                    std::cerr << "[wfmash::lde_align] ERROR: could not open AGC archive " << fileName << std::endl;
+                    exit(1);
+                }
+                for (const auto& nl : agc.names_and_lengths()) {
+                    seqName_to_seqCounterAndLen[nl.first] = std::make_pair(seqCounter++, (uint64_t)nl.second);
+                }
+            }
+#endif
+            else {
                 // if not, warn that this is expensive
                 std::cerr << "[wfmash::align] WARNING, no .fai index found for " << fileName << ", reading the file to sort the mappings (slow)" << std::endl;
                 for(const auto &fileName : map_parameters.querySequences)
@@ -170,7 +185,7 @@ int lde_main(int argc, char** argv) {
         {
             // check if there is a .fai
             std::string fai_name = fileName + ".fai";
-            if (fs::exists(fai_name)) {
+            if ((access((fai_name).c_str(), F_OK) == 0)) {
                 // if so, process the .fai to determine our sequence length
                 std::string line;
                 std::ifstream in(fai_name.c_str());
@@ -180,7 +195,21 @@ int lde_main(int argc, char** argv) {
                     const uint64_t seq_len = std::stoull(line_split[1]);
                     outstrm << "@SQ\tSN:" << seq_name << "\tLN:" << seq_len << "\n";
                 }
-            } else {
+            }
+#ifdef WFMASH_HAVE_AGC
+            else if (agcidx::is_agc_file(fileName)) {
+                // AGC: emit @SQ lengths from archive metadata (GetCtgLen), no decompression
+                agcidx::AgcIndex agc;
+                if (!agc.open(fileName)) {
+                    std::cerr << "[wfmash::lde_align] ERROR: could not open AGC archive " << fileName << std::endl;
+                    exit(1);
+                }
+                for (const auto& nl : agc.names_and_lengths()) {
+                    outstrm << "@SQ\tSN:" << nl.first << "\tLN:" << nl.second << "\n";
+                }
+            }
+#endif
+            else {
                 // if not, warn that this is expensive
                 std::cerr << "[wfmash::align] WARNING, no .fai index found for " << fileName << ", reading the file to prepare SAM header (slow)" << std::endl;
                 lde_seqiter::for_each_seq_in_file(

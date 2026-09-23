@@ -80,7 +80,7 @@ void lde_wavefront_plot_delete(
     wavefront_plot_t* const wf_plot);
 
 /*
- * Accessors
+ * Plot record state
  */
 void lde_wavefront_plot(
     wavefront_aligner_t* const wf_aligner,
@@ -88,7 +88,7 @@ void lde_wavefront_plot(
     const int align_level);
 
 /*
- * Display
+ * Display/Dump
  */
 void lde_wavefront_plot_print(
     FILE* const stream,

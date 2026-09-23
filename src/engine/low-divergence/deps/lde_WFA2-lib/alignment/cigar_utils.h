@@ -26,55 +26,55 @@
  *
  * PROJECT: Wavefront Alignment Algorithms
  * AUTHOR(S): Santiago Marco-Sola <santiagomsola@gmail.com>
- * DESCRIPTION: WaveFront-Alignment module for the "extension" of exact matches
  */
 
-#ifndef WAVEFRONT_EXTEND_AVX_H_
-#define WAVEFRONT_EXTEND_AVX_H_
+#ifndef CIGAR_UTILS_H_
+#define CIGAR_UTILS_H_
 
-#if __AVX2__
+#include "cigar.h"
 
-#include "wavefront_aligner.h"
+/*
+ * Compare & Copy
+ */
+int lde_cigar_cmp(
+    const cigar_t* const cigar_a,
+    const cigar_t* const cigar_b);
+void lde_cigar_copy(
+    cigar_t* const cigar_dst,
+    const cigar_t* const cigar_src);
 
-void lde_wavefront_extend_matches_packed_end2end_avx2(
-    wavefront_aligner_t* const wf_aligner,
-    wavefront_t* const mwavefront,
-    const int lo,
-    const int hi);
+/*
+ * Mismatch Discovery
+ */
+void lde_cigar_discover_mismatches(
+    const char* const pattern,
+    const int pattern_length,
+    const char* const text,
+    const int text_length,
+    cigar_t* const cigar);
 
-wf_offset_t lde_wavefront_extend_matches_packed_end2end_max_avx2(
-    wavefront_aligner_t* const wf_aligner,
-    wavefront_t* const mwavefront,
-    const int lo,
-    const int hi);
+/*
+ * Maxtrim
+ *   Reduce the CIGAR to the maximal scoring sequence, starting from
+ *   the beginning, under a given distance function
+ */
+bool lde_cigar_maxtrim_gap_linear(
+    cigar_t* const cigar,
+    const linear_penalties_t* const penalties);
+bool lde_cigar_maxtrim_gap_affine(
+    cigar_t* const cigar,
+    const affine_penalties_t* const penalties);
+bool lde_cigar_maxtrim_gap_affine2p(
+    cigar_t* const cigar,
+    const affine2p_penalties_t* const penalties);
 
-bool lde_wavefront_extend_matches_packed_endsfree_avx2(
-    wavefront_aligner_t* const wf_aligner,
-    wavefront_t* const mwavefront,
-    const int score,
-    const int lo,
-    const int hi);
+/*
+ * Local Alignment Extraction
+ */
+bool lde_cigar_maxlocal_gap_affine2p(
+    cigar_t* const cigar,
+    const affine2p_penalties_t* const penalties,
+    const int pattern_length,
+    const int text_length);
 
-#if __AVX512CD__ && __AVX512VL__
-void wavefront_extend_matches_packed_end2end_avx512(
-    wavefront_aligner_t* const wf_aligner,
-    wavefront_t* const mwavefront,
-    const int lo,
-    const int hi);
-
-wf_offset_t wavefront_extend_matches_packed_end2end_max_avx512(
-    wavefront_aligner_t* const wf_aligner,
-    wavefront_t* const mwavefront,
-    const int lo,
-    const int hi);
-
-bool wavefront_extend_matches_packed_endsfree_avx512(
-    wavefront_aligner_t* const wf_aligner,
-    wavefront_t* const mwavefront,
-    const int score,
-    const int lo,
-    const int hi);
-#endif
-#endif // AVX2
-
-#endif /* WAVEFRONT_EXTEND_AVX_H_ */
+#endif /* CIGAR_UTILS_H_ */

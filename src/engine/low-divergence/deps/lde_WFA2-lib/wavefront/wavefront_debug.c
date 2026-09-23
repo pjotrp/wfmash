@@ -133,6 +133,7 @@ void lde_wavefront_report_lite(
   const int text_length = sequences->text_length;
   const int status = wf_aligner->align_status.status;
   const uint64_t memory_used = wf_aligner->align_status.memory_used;
+  const bool has_cigar = alignment_completed && !lde_cigar_is_null(wf_aligner->cigar);
   // BANNER (#0)
   if (alignment_completed) {
     fprintf(stream,"[WFA::Debug]");
@@ -145,6 +146,10 @@ void lde_wavefront_report_lite(
   const int score = wf_aligner->cigar->score;
   if (alignment_completed && score!=INT32_MIN) {
     fprintf(stream,"\t%d",score);
+    if (has_cigar) {
+      const int edit_dist = lde_cigar_score_edit(wf_aligner->cigar);
+      fprintf(stream,"/%1.2f",(float)edit_dist/(float)MAX(pattern_length,text_length));
+    }
   } else {
     fprintf(stream,"\t*");
   }
@@ -184,7 +189,7 @@ void lde_wavefront_report_lite(
       wf_aligner->wf_components.historic_max_hi);
   fprintf(stream,"]\t");
   // CIGAR (#8)
-  if (!alignment_completed || lde_cigar_is_null(wf_aligner->cigar)) {
+  if (!has_cigar) {
     fprintf(stream,"-");
   } else {
     lde_cigar_print(stream,wf_aligner->cigar,true);

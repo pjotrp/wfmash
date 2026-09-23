@@ -54,11 +54,7 @@ void lde_wavefront_extend_end2end_dispatcher_seq(
   wavefront_sequences_t* const seqs = &wf_aligner->sequences;
   // Check the sequence mode
   if (seqs->mode == wf_sequences_ascii) {
-//#if __AVX2__ // TODO
-//    lde_wavefront_extend_matches_packed_end2end_avx2(wf_aligner,mwavefront,lo,hi);
-//#else
     lde_wavefront_extend_matches_packed_end2end(wf_aligner,mwavefront,lo,hi);
-//#endif
   } else {
     wf_offset_t dummy;
     lde_wavefront_extend_matches_custom(wf_aligner,mwavefront,score,lo,hi,false,&dummy);

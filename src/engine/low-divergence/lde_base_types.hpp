@@ -128,9 +128,46 @@ namespace lde_skch
   // Enum for tracking which side of an interval a point represents
   enum side : side_t
   {
-    OPEN = 1,  
+    OPEN = 1,
     CLOSE = -1
-  };  
+  };
+
+  // ---- Packed interval-point representation (IP-1) ----
+  // When windowLen == 0 (the default split fragmentation) the plane sweep never
+  // reads IntervalPoint::hash, so interval points can be represented as the same
+  // order-preserving uint64 key the radix sort already uses:
+  //   [ seqId : bits 33..63 ][ pos : bits 1..32 ][ sideOpen : bit 0 ]
+  // (side::CLOSE(-1)->0, side::OPEN(1)->1, so numeric key order == operator<).
+  // This drops the 24-byte struct and its scattered gather from the sort and cuts
+  // the plane sweep's memory traffic ~3x. Byte-identical for windowLen == 0.
+  inline uint64_t encodePackedIP(const IntervalPoint& p) {
+    return ((uint64_t)(uint32_t)p.seqId << 33) | ((uint64_t)p.pos << 1)
+         | (uint64_t)(p.side == side::OPEN ? 1u : 0u);
+  }
+  inline IntervalPoint decodePackedIP(uint64_t k) {
+    IntervalPoint ip;
+    ip.pos   = (offset_t)((k >> 1) & 0xFFFFFFFFULL);
+    ip.hash  = 0;                                   // dead when windowLen == 0
+    ip.seqId = (seqno_t)(k >> 33);
+    ip.side  = (k & 1) ? side::OPEN : side::CLOSE;
+    return ip;
+  }
+
+  // Forward iterator over packed keys presenting each as a decoded IntervalPoint,
+  // so computeL1CandidateRegions can consume packed keys unchanged.
+  struct PackedIPCursor {
+    const uint64_t* p;
+    struct Arrow {
+      IntervalPoint ip;
+      const IntervalPoint* operator->() const { return &ip; }
+    };
+    IntervalPoint operator*()  const { return decodePackedIP(*p); }
+    Arrow         operator->() const { return Arrow{ decodePackedIP(*p) }; }
+    PackedIPCursor& operator++()    { ++p; return *this; }
+    PackedIPCursor  operator++(int) { PackedIPCursor t = *this; ++p; return t; }
+    bool operator==(const PackedIPCursor& o) const { return p == o.p; }
+    bool operator!=(const PackedIPCursor& o) const { return p != o.p; }
+  };
 
   struct SeqCoord
   {
@@ -231,6 +268,14 @@ namespace lde_skch
           , len(s.length())
           , seq(s)
           , seqName(id) { }
+
+      // len is initialized before seq in declaration order, so reading s.length()
+      // happens before the move.
+      InputSeqContainer(std::string&& s, const std::string& id, seqno_t seqcount)
+          : seqCounter(seqcount)
+          , len(s.length())
+          , seq(std::move(s))
+          , seqName(id) { }
   };
 
   struct InputSeqProgContainer : InputSeqContainer
@@ -247,6 +292,10 @@ namespace lde_skch
      */
       InputSeqProgContainer(const std::string& s, const std::string& id, seqno_t seqcount, lde_progress_meter::ProgressMeter& pm)
           : InputSeqContainer(s, id, seqcount)
+          , progress(pm) { }
+
+      InputSeqProgContainer(std::string&& s, const std::string& id, seqno_t seqcount, lde_progress_meter::ProgressMeter& pm)
+          : InputSeqContainer(std::move(s), id, seqcount)
           , progress(pm) { }
   };
 
