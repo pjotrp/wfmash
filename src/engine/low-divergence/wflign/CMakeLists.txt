@@ -70,7 +70,7 @@ target_include_directories(lde_wflign PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/deps)
 target_include_directories(lde_wflign PUBLIC
-  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/src
   ${CMAKE_SOURCE_DIR}/src/engine/low-divergence/deps)
 target_include_directories(lde_wflign PRIVATE
   ${CMAKE_SOURCE_DIR}/src/common/wflign/deps
@@ -91,7 +91,6 @@ target_include_directories(lde_standalone PRIVATE
   ${CMAKE_SOURCE_DIR}/src
   ${CMAKE_SOURCE_DIR}/src/common
   ${CMAKE_SOURCE_DIR}/src/common/wflign/deps
-  ${CMAKE_SOURCE_DIR}
   ${CMAKE_BINARY_DIR}
   ${CMAKE_SOURCE_DIR}/src/engine/low-divergence/deps)
 target_link_libraries(lde_standalone lde_wflign hts z pthread gsl gslcblas)
